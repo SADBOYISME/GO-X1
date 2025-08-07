@@ -37,6 +37,18 @@ type UpdateUserRequest struct {
 	Password string `json:"password,omitempty" validate:"omitempty,min=6"`
 }
 
+// LoginRequest is used for user login
+type LoginRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
+}
+
+// LoginResponse is the response for a successful login
+type LoginResponse struct {
+	Token string       `json:"token"`
+	User  UserResponse `json:"user"`
+}
+
 // ToResponse converts User to UserResponse
 func (u *User) ToResponse() UserResponse {
 	return UserResponse{

@@ -67,14 +67,15 @@ A simple REST API built with Go and Fiber for learning purposes.
 
 ## Environment Variables
 
-| Variable    | Description              | Default     |
-|------------|--------------------------|-------------|
-| PORT       | Server port              | 8080        |
-| DB_HOST    | Database host            | localhost   |
-| DB_PORT    | Database port            | 3306        |
-| DB_USER    | Database username        | root        |
-| DB_PASSWORD| Database password        |             |
-| DB_NAME    | Database name            | go_api_db   |
+| Variable     | Description              | Default          |
+|--------------|--------------------------|------------------|
+| PORT         | Server port              | 8080             |
+| DB_HOST      | Database host            | localhost        |
+| DB_PORT      | Database port            | 3306             |
+| DB_USER      | Database username        | root             |
+| DB_PASSWORD  | Database password        |                  |
+| DB_NAME      | Database name            | go_api_db        |
+| JWT_SECRET   | Secret key for JWT       | your-secret-key  |
 
 ## API Endpoints
 
@@ -85,12 +86,15 @@ A simple REST API built with Go and Fiber for learning purposes.
 ### Utilities
 - **GET** `/uuid` - Generate a new UUID
 
+### Auth
+- **POST** `/api/v1/auth/login` - Login to get a JWT token
+
 ### Users (CRUD)
-- **GET** `/api/v1/users` - Get all users
 - **POST** `/api/v1/users` - Create a new user
-- **GET** `/api/v1/users/:id` - Get user by ID
-- **PUT** `/api/v1/users/:id` - Update user by ID
-- **DELETE** `/api/v1/users/:id` - Delete user by ID
+- **GET** `/api/v1/users` - Get all users (protected)
+- **GET** `/api/v1/users/:id` - Get user by ID (protected)
+- **PUT** `/api/v1/users/:id` - Update user by ID (protected)
+- **DELETE** `/api/v1/users/:id` - Delete user by ID (protected)
 
 ## API Usage Examples
 
@@ -235,17 +239,19 @@ The API includes comprehensive error handling:
 - **500 Internal Server Error** - Server errors
 - **503 Service Unavailable** - Database unavailable
 
-## Security Considerations
+## Security
 
-⚠️ **Note**: This is a learning project. For production use, implement:
+This project implements the following security features:
 
-1. **Password Hashing** - Hash passwords before storing
-2. **Authentication** - Add JWT or session-based auth
-3. **Authorization** - Implement role-based access control
-4. **Rate Limiting** - Prevent API abuse
-5. **Input Sanitization** - Additional input cleaning
-6. **HTTPS** - Secure communication
-7. **SQL Injection Protection** - GORM provides some protection, but validate inputs
+- **Password Hashing**: Passwords are hashed using bcrypt before being stored in the database.
+- **JWT Authentication**: Protected routes require a valid JSON Web Token (JWT).
+
+For production use, consider implementing:
+
+- **Authorization**: Role-based access control (RBAC) to manage user permissions.
+- **Rate Limiting**: To prevent API abuse.
+- **HTTPS**: To secure communication between the client and the server.
+- **Input Sanitization**: For additional protection against injection attacks.
 
 ## Contributing
 
