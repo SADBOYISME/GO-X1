@@ -196,6 +196,32 @@ All API responses follow a standard format:
 - **Email**: Required, valid email format, unique
 - **Password**: Required, minimum 6 characters
 
+## Running with Docker
+
+1.  **Ensure Docker is installed** on your system.
+
+2.  **Create a `.env` file** from the example:
+    ```bash
+    cp .env.example .env
+    ```
+    *Note: The default `DB_HOST` is already set to `db` to connect to the Docker container.*
+
+3.  **Build and run the containers:**
+    ```bash
+    docker-compose up -d --build
+    ```
+    This command will build the Go application image, pull the MySQL image, and start both containers in detached mode.
+
+4.  **Check the logs:**
+    ```bash
+    docker-compose logs -f app
+    ```
+
+5.  **Stop the containers:**
+    ```bash
+    docker-compose down
+    ```
+
 ## Development
 
 ### Building the Application
