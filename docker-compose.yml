@@ -24,7 +24,7 @@ services:
       MYSQL_DATABASE: ${DB_NAME}
     volumes:
       - mysql_data:/var/lib/mysql
-    restart: always
+    restart: unless-stopped
 
 volumes:
   mysql_data:
