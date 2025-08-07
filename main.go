@@ -104,13 +104,94 @@ func setupRoutes(app *fiber.App) {
 	// API group
 	api := app.Group("/api/v1")
 	
+	// Auth routes
+	authRoutes := api.Group("/auth")
+	authRoutes.Post("/login", loginUser)
+
 	// User routes
 	users := api.Group("/users")
-	users.Get("/", getUsers)
 	users.Post("/", createUser)
-	users.Get("/:id", getUserByID)
-	users.Put("/:id", updateUser)
-	users.Delete("/:id", deleteUser)
+
+	// Protected user routes
+	protectedUsers := users.Use(auth.AuthMiddleware)
+	protectedUsers.Get("/", getUsers)
+	protectedUsers.Get("/:id", getUserByID)
+	protectedUsers.Put("/:id", updateUser)
+	protectedUsers.Delete("/:id", deleteUser)
+}
+
+// Login user
+func loginUser(c *fiber.Ctx) error {
+	if db == nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(APIResponse{
+			Success: false,
+			Message: "Database not available",
+			Error:   "Database connection not established",
+		})
+	}
+
+	var req models.LoginRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+			Success: false,
+			Message: "Invalid request body",
+			Error:   err.Error(),
+		})
+	}
+
+	// Validate request
+	if err := validate.Struct(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+			Success: false,
+			Message: "Validation failed",
+			Error:   err.Error(),
+		})
+	}
+
+	// Find user by email
+	var user models.User
+	if err := db.Where("email = ?", req.Email).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
+				Success: false,
+				Message: "Invalid credentials",
+				Error:   "User not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
+			Success: false,
+			Message: "Failed to fetch user",
+			Error:   err.Error(),
+		})
+	}
+
+	// Check password
+	if !auth.CheckPasswordHash(req.Password, user.Password) {
+		return c.Status(fiber.StatusUnauthorized).JSON(APIResponse{
+			Success: false,
+			Message: "Invalid credentials",
+			Error:   "Incorrect password",
+		})
+	}
+
+	// Generate JWT
+	token, err := auth.GenerateJWT(user.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
+			Success: false,
+			Message: "Failed to generate token",
+			Error:   err.Error(),
+		})
+	}
+
+	return c.JSON(APIResponse{
+		Success: true,
+		Message: "Login successful",
+		Data: models.LoginResponse{
+			Token: token,
+			User:  user.ToResponse(),
+		},
+	})
 }
 
 // Health check endpoint
@@ -196,11 +277,21 @@ func createUser(c *fiber.Ctx) error {
 		})
 	}
 
+	// Hash password
+	hashedPassword, err := auth.HashPassword(req.Password)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
+			Success: false,
+			Message: "Failed to hash password",
+			Error:   err.Error(),
+		})
+	}
+
 	// Create user
 	user := models.User{
 		Username: req.Username,
 		Email:    req.Email,
-		Password: req.Password, // In production, hash the password
+		Password: hashedPassword,
 	}
 
 	if err := db.Create(&user).Error; err != nil {
