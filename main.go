@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"GO-X1/auth"
 	"GO-X1/connectDB"
@@ -48,9 +49,9 @@ func main() {
 		log.Println("Continuing without database connection...")
 	} else {
 		log.Println("Successfully connected to database!")
-		
+
 		// Auto migrate the schema
-		if err := db.AutoMigrate(&models.User{}); err != nil {
+		if err := db.AutoMigrate(&models.User{}, &models.RefreshToken{}); err != nil {
 			log.Printf("Warning: Failed to migrate database: %v", err)
 		} else {
 			log.Println("Database migration completed!")
@@ -97,13 +98,13 @@ func setupRoutes(app *fiber.App) {
 	// Health check
 	app.Get("/", healthCheck)
 	app.Get("/health", healthCheck)
-	
+
 	// Utility endpoints
 	app.Get("/uuid", generateUUID)
 
 	// API group
 	api := app.Group("/api/v1")
-	
+
 	// Auth routes
 	authRoutes := api.Group("/auth")
 	authRoutes.Post("/login", loginUser)
@@ -184,12 +185,38 @@ func loginUser(c *fiber.Ctx) error {
 		})
 	}
 
+	// Generate refresh token
+	refreshToken, err := auth.GenerateRefreshToken(user.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
+			Success: false,
+			Message: "Failed to generate refresh token",
+			Error:   err.Error(),
+		})
+	}
+
+	// Store refresh token
+	rt := models.RefreshToken{
+		Token:     refreshToken,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+		Revoked:   false,
+	}
+	if err := db.Create(&rt).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(APIResponse{
+			Success: false,
+			Message: "Failed to store refresh token",
+			Error:   err.Error(),
+		})
+	}
+
 	return c.JSON(APIResponse{
 		Success: true,
 		Message: "Login successful",
 		Data: models.LoginResponse{
-			Token: token,
-			User:  user.ToResponse(),
+			Token:        token,
+			RefreshToken: refreshToken,
+			User:         user.ToResponse(),
 		},
 	})
 }
@@ -200,8 +227,8 @@ func healthCheck(c *fiber.Ctx) error {
 		Success: true,
 		Message: "API is running successfully",
 		Data: map[string]interface{}{
-			"status": "healthy",
-			"service": "GO-X1 REST API",
+			"status":   "healthy",
+			"service":  "GO-X1 REST API",
 			"database": db != nil,
 		},
 	})
